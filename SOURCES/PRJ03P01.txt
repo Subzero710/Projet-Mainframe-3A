@@ -1,0 +1,280 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. PRJ03P01.
+      *================================================================*
+      * PROJET 03 - APPLE PAY - JALON 2 (RAPPROCHEMENT TPERSPGM)
+      *================================================================*
+       ENVIRONMENT DIVISION.
+       CONFIGURATION SECTION.
+       SOURCE-COMPUTER. IBM-370.
+       OBJECT-COMPUTER. IBM-370.
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+           SELECT F-IN-MOUV ASSIGN TO SYS010
+                  ORGANIZATION IS SEQUENTIAL
+                  ACCESS MODE IS SEQUENTIAL
+                  FILE STATUS IS W-FS-IN.
+
+           SELECT F-OUT-MOUV ASSIGN TO SYS020
+                  ORGANIZATION IS SEQUENTIAL
+                  ACCESS MODE IS SEQUENTIAL
+                  FILE STATUS IS W-FS-OUT.
+
+       DATA DIVISION.
+       FILE SECTION.
+       FD  F-IN-MOUV
+           RECORD CONTAINS 200 CHARACTERS
+           RECORDING MODE IS F.
+       01  REC-IN-MOUV.
+           05  IN-MOUV-NOM             PIC X(64).
+           05  IN-MOUV-PRENOM          PIC X(32).
+           05  IN-MOUV-TOKEN           PIC 9(06).
+           05  IN-MOUV-DATE-OPE        PIC 9(08).
+           05  IN-MOUV-TYPE-OPE        PIC X(01).
+               88 TYPE-INTERNET        VALUE 'I'.
+               88 TYPE-MAGASIN         VALUE 'M'.
+           05  IN-MOUV-MONTANT         PIC 9(08)V99.
+           05  IN-MOUV-LIBELLE         PIC X(64).
+           05  FILLER                  PIC X(15).
+
+       FD  F-OUT-MOUV
+           RECORD CONTAINS 200 CHARACTERS
+           RECORDING MODE IS F.
+       01  REC-OUT-MOUV.
+           05  OUT-MOUV-NOM            PIC X(64).
+           05  OUT-MOUV-PRENOM         PIC X(32).
+           05  OUT-MOUV-TOKEN          PIC 9(06).
+           05  OUT-MOUV-DATE-OPE       PIC 9(08).
+           05  OUT-MOUV-TYPE-OPE       PIC X(01).
+           05  OUT-MOUV-MONTANT        PIC 9(08)V99.
+           05  OUT-MOUV-LIBELLE        PIC X(64).
+           05  FILLER                  PIC X(15).
+
+       WORKING-STORAGE SECTION.
+       01  W-FS-IN                     PIC X(02) VALUE '00'.
+           88 FS-IN-OK                           VALUE '00'.
+           88 FS-IN-EOF                          VALUE '10'.
+
+       01  W-FS-OUT                    PIC X(02) VALUE '00'.
+           88 FS-OUT-OK                          VALUE '00'.
+
+       01  W-CPT-LUS                   PIC 9(07) VALUE ZERO.
+       01  W-CPT-MATCH                 PIC 9(07) VALUE ZERO.
+       01  W-CPT-REJET                 PIC 9(07) VALUE ZERO.
+       01  W-CPT-LUS-EDIT              PIC ZZ,ZZZ,ZZ9.
+       01  W-CPT-MATCH-EDIT            PIC ZZ,ZZZ,ZZ9.
+       01  W-CPT-REJET-EDIT            PIC ZZ,ZZZ,ZZ9.
+
+      *----------------------------------------------------------------*
+      * TABLEAU INTERNE POUR STOCKER LES CLIENTS DB2 EN MEMOIRE
+      *----------------------------------------------------------------*
+       01  W-MAX-CLIENTS               PIC 9(04) VALUE 100.
+       01  W-NB-CLIENTS-CHARGE         PIC 9(04) VALUE 0.
+       01  W-IDX-BLOC                  PIC 9(04).
+
+       01  W-TAB-CLIENTS.
+           05  W-CLIENT OCCURS 1 TO 100 TIMES
+                        DEPENDING ON W-NB-CLIENTS-CHARGE
+                        INDEXED BY IDX-CLI.
+               10  W-CLI-ID            PIC 9(10).
+               10  W-CLI-NOM           PIC X(64).
+               10  W-CLI-PRENOM        PIC X(32).
+
+      *----------------------------------------------------------------*
+      * STRUCTURES D'APPEL DU SOUS-PROGRAMME TPERSPGM (COPY YESPERS)
+      *----------------------------------------------------------------*
+       01  ENTREE PIC X(500).
+       01  FILLER REDEFINES ENTREE.
+           05  PARTIE-FIXE-ALLER.
+               10  TYPE-ACCESS PIC X(01).
+                   88  ACCESS-SELECT VALUE 'S'.
+                   88  ACCESS-LIST   VALUE 'L'.
+                   88  ACCESS-INSERT VALUE 'I'.
+           05  PARTIE-VARIABLE-ALLER PIC X(499).
+           05  ENTREE-FONCTION-LECTURE-SIMPLE REDEFINES
+                PARTIE-VARIABLE-ALLER.
+               10  CLE-ACCESS-LECTURE-SIM PIC 9(10).
+           05  ENTREE-FONCTION-LECTURE-LISTE REDEFINES
+               PARTIE-VARIABLE-ALLER.
+               10  CLE-ACCESS-LECTURE-LIS PIC 9(10).
+               10  CODE-FONCTION PIC X(05).
+                   88  PREMIERE-LECTURE VALUE 'PLECT'.
+                   88  LECTURE-SUIVANTE VALUE 'LSUIV'.
+                   88  FIN-LECTURE      VALUE 'FLECT'.
+           05  ENTREE-FONCTION-INSERT REDEFINES
+                PARTIE-VARIABLE-ALLER.
+               10  I-NOM               PIC X(64).
+               10  I-PRENOM            PIC X(32).
+               10  I-DATE-NAISS        PIC X(10).
+               10  I-ADRESSE           PIC X(64).
+               10  I-COD-POS-NAISS     PIC X(05).
+
+       01  SORTIE PIC X(1100).
+       01  FILLER REDEFINES SORTIE.
+           05  PARTIE-FIXE-RETOUR.
+               10  CODE-RETOUR     PIC X(2).
+                   88  RETOUR-OK   VALUE 'OK'.
+                   88  RETOUR-KO   VALUE 'KO'.
+               10  LIBELLE-ANOMALIE PIC X(98).
+           05  PARTIE-VARIABLE-RETOUR    PIC X(1000).
+           05  DONNEES-LECTURE-SIMPLE REDEFINES PARTIE-VARIABLE-RETOUR.
+               10  S-NOM         PIC X(64).
+               10  S-PRENOM      PIC X(32).
+               10  S-DATE-NAISS  PIC X(10).
+               10  S-ADRESSE     PIC X(64).
+               10  S-COD-POS-NAISS     PIC X(05).
+           05  DONNEES-LECTURE-LISTE REDEFINES PARTIE-VARIABLE-RETOUR.
+               10  STATUT-SUITE    PIC X(10).
+                   88  FIN-LISTE-ATTEINTE  VALUE 'FIN LISTE '.
+                   88  LISTE-EN-COURS      VALUE 'LISTE ENCO'.
+               10  NB-POSTE-LISTE  PIC 9(1).
+               10  TABLEAU-DONNEES OCCURS 5.
+                   15  T-CLE-ID-PERS       PIC 9(10).
+                   15  T-NOM               PIC X(64).
+                   15  T-PRENOM            PIC X(32).
+                   15  T-DATE_NAISS        PIC X(10).
+                   15  T-ADRESSE           PIC X(64).
+                   15  T-COD-POS-NAISS     PIC X(05).
+
+       PROCEDURE DIVISION.
+       0000-PRINCIPAL.
+           PERFORM 1000-DEBUT
+           PERFORM 1500-CHARGER-REFERENTIEL
+
+           PERFORM 2100-LIRE-IN-MOUV
+           PERFORM 2000-TRAITEMENT UNTIL FS-IN-EOF
+
+           PERFORM 3000-FIN
+           GOBACK.
+
+       1000-DEBUT.
+           DISPLAY '=================================================='
+           DISPLAY 'DEBUT TRAITEMENT : RAPPROCHEMENT APPLE PAY'
+           DISPLAY '=================================================='
+
+           OPEN INPUT F-IN-MOUV
+           IF NOT FS-IN-OK
+               DISPLAY 'ERREUR OPEN F-IN-MOUV - STATUS : ' W-FS-IN
+               PERFORM 9999-ABEND
+           END-IF
+
+           OPEN OUTPUT F-OUT-MOUV
+           IF NOT FS-OUT-OK
+               DISPLAY 'ERREUR OPEN F-OUT-MOUV - STATUS : ' W-FS-OUT
+               PERFORM 9999-ABEND
+           END-IF.
+
+      *----------------------------------------------------------------*
+      * CHARGEMENT DU REFERENTIEL DB2 EN MEMOIRE VIA TPERSPGM
+      *----------------------------------------------------------------*
+       1500-CHARGER-REFERENTIEL.
+           INITIALIZE ENTREE SORTIE
+           SET ACCESS-LIST TO TRUE
+           SET PREMIERE-LECTURE TO TRUE
+           MOVE ZERO TO CLE-ACCESS-LECTURE-LIS
+
+           CALL 'TPERSPGM' USING ENTREE SORTIE
+
+           IF RETOUR-KO
+               DISPLAY 'ERREUR APPEL 1 TPERSPGM : ' LIBELLE-ANOMALIE
+               PERFORM 9999-ABEND
+           END-IF
+
+           PERFORM 1550-STOCKER-BLOC
+
+           PERFORM UNTIL FIN-LISTE-ATTEINTE
+               INITIALIZE ENTREE
+               SET ACCESS-LIST TO TRUE
+               SET LECTURE-SUIVANTE TO TRUE
+               CALL 'TPERSPGM' USING ENTREE SORTIE
+
+               IF RETOUR-KO
+                   DISPLAY 'ERREUR APPEL SUIVANT : ' LIBELLE-ANOMALIE
+                   PERFORM 9999-ABEND
+               END-IF
+
+               PERFORM 1550-STOCKER-BLOC
+           END-PERFORM
+
+      *    Fermeture du curseur DB2
+           INITIALIZE ENTREE
+           SET ACCESS-LIST TO TRUE
+           SET FIN-LECTURE TO TRUE
+           CALL 'TPERSPGM' USING ENTREE SORTIE
+
+           DISPLAY '--- ' W-NB-CLIENTS-CHARGE ' CLIENTS CHARGES ---'.
+
+       1550-STOCKER-BLOC.
+           PERFORM VARYING W-IDX-BLOC FROM 1 BY 1
+                   UNTIL W-IDX-BLOC > NB-POSTE-LISTE
+               ADD 1 TO W-NB-CLIENTS-CHARGE
+               IF W-NB-CLIENTS-CHARGE > W-MAX-CLIENTS
+                   DISPLAY 'ERREUR: TABLEAU CLIENTS TROP PETIT'
+                   PERFORM 9999-ABEND
+               END-IF
+               MOVE T-CLE-ID-PERS(W-IDX-BLOC)
+                 TO W-CLI-ID(W-NB-CLIENTS-CHARGE)
+               MOVE T-NOM(W-IDX-BLOC)
+                 TO W-CLI-NOM(W-NB-CLIENTS-CHARGE)
+               MOVE T-PRENOM(W-IDX-BLOC)
+                 TO W-CLI-PRENOM(W-NB-CLIENTS-CHARGE)
+           END-PERFORM.
+
+      *----------------------------------------------------------------*
+      * RECHERCHE DU CLIENT DANS LE TABLEAU POUR CHAQUE LIGNE
+      *----------------------------------------------------------------*
+       2000-TRAITEMENT.
+           SET IDX-CLI TO 1
+           SEARCH W-CLIENT
+               AT END
+      *            Le client n'est pas dans la base
+                   ADD 1 TO W-CPT-REJET
+               WHEN W-CLI-ID(IDX-CLI) = IN-MOUV-TOKEN
+      *            Le client existe : on l'accepte et on l'enrichit
+                   MOVE REC-IN-MOUV TO REC-OUT-MOUV
+
+                   MOVE W-CLI-NOM(IDX-CLI)    TO OUT-MOUV-NOM
+                   MOVE W-CLI-PRENOM(IDX-CLI) TO OUT-MOUV-PRENOM
+
+                   WRITE REC-OUT-MOUV
+                   IF NOT FS-OUT-OK
+                       DISPLAY 'ERREUR WRITE F-OUT-MOUV : ' W-FS-OUT
+                       PERFORM 9999-ABEND
+                   END-IF
+                   ADD 1 TO W-CPT-MATCH
+           END-SEARCH
+
+           PERFORM 2100-LIRE-IN-MOUV.
+
+       2100-LIRE-IN-MOUV.
+           READ F-IN-MOUV
+               AT END
+                   CONTINUE
+               NOT AT END
+                   IF FS-IN-OK
+                       ADD 1 TO W-CPT-LUS
+                   ELSE
+                       DISPLAY 'ERREUR READ F-IN-MOUV : ' W-FS-IN
+                       PERFORM 9999-ABEND
+                   END-IF
+           END-READ.
+
+       3000-FIN.
+           CLOSE F-IN-MOUV
+           CLOSE F-OUT-MOUV
+
+           MOVE W-CPT-LUS    TO W-CPT-LUS-EDIT
+           MOVE W-CPT-MATCH  TO W-CPT-MATCH-EDIT
+           MOVE W-CPT-REJET  TO W-CPT-REJET-EDIT
+
+           DISPLAY '--------------------------------------------------'
+           DISPLAY 'COMPTE-RENDU DE FIN DE TRAITEMENT :'
+           DISPLAY ' - LIGNES LUES    : ' W-CPT-LUS-EDIT
+           DISPLAY ' - MATCHS (BONS)  : ' W-CPT-MATCH-EDIT
+           DISPLAY ' - REJETS         : ' W-CPT-REJET-EDIT
+           DISPLAY 'TRAITEMENT TERMINE AVEC SUCCES.'
+           DISPLAY '=================================================='.
+
+       9999-ABEND.
+           DISPLAY 'ARRET DU PROGRAMME SUITE A ERREUR.'
+           MOVE 16 TO RETURN-CODE
+           GOBACK.
