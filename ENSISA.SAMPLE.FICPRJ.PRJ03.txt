@@ -1,0 +1,10 @@
+MITTERAND                                                       FRANCOIS                        00010020221028I0000015000TELE
+MUSK                                                            ELON                            00020020221028T0100000000FUSEE
+CHIRAC                                                          JACQUES                         00030020221028I0000005000CIGARETTE
+POMPIDOU                                                        GEORGES                         00020020221029T0100000000FUSEE
+CHIRAC                                                          JACQUES                         00040020221028T0000000200BAGUETTE
+SARKOZY                                                         NICOLAS                         00020020221030T0000060000BATTERIE
+MITTERAND                                                       FRANCOIS                        00010020221029T0000150000ORDINATEUR
+MUSK                                                            ELON                            00020020221029I0000050000TELEPHONE
+MITTERAND                                                       FRANCOIS                        00010020221031I0000050000TELEPHONE
+MUSK                                                            ELON                            00020020221031T0000060000BATTERIE
